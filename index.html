@@ -89,5 +89,39 @@
       });
     }
   </script>
+<script>
+(function installVoltaMapsRelay() {
+  const app = document.getElementById('appFrame');
+  if (!app || !window.VOLTA_NATIVE || window.__voltaMapsRelay) return;
+  window.__voltaMapsRelay = true;
+
+  function containsFrame(frame, sender, depth) {
+    if (frame === sender) return true;
+    if (!frame || depth === 0) return false;
+    for (let i = 0; i < frame.length; i++) {
+      if (containsFrame(frame[i], sender, depth - 1)) return true;
+    }
+    return false;
+  }
+
+  window.addEventListener('message', function (event) {
+    const request = event.data;
+    if (!request || request.type !== 'VOLTA_MAPS_FROM_APPS_SCRIPT') return;
+    if (!/^https:\/\/(?:script\.google\.com|script\.googleusercontent\.com|[a-z0-9-]+[.-]script\.googleusercontent\.com)$/.test(event.origin)) return;
+    if (!event.source || !containsFrame(app.contentWindow, event.source, 3)) return;
+    if (typeof request.destino !== 'string') return;
+    let destination;
+    try { destination = new URL(request.destino); } catch (_) { return; }
+    if (destination.origin !== 'https://www.google.com' ||
+        destination.username || destination.password ||
+        !['/maps/dir/', '/maps/search/'].includes(destination.pathname) ||
+        destination.searchParams.get('api') !== '1') return;
+    window.VOLTA_NATIVE.postMessage(JSON.stringify({
+      type: 'VOLTA_NATIVE_MAPS',
+      destino: destination.href
+    }));
+  });
+})();
+</script>
 </body>
 </html>
